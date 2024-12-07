@@ -114,14 +114,19 @@ func (c *FetchCommand) handleRegularResponse(resp *http.Response, writer Respons
         headers[k] = v
     }
 
-    // Parse JSON if content-type is application/json
-    var responseBody interface{} = string(respBody)
-    if ct := resp.Header.Get("Content-Type"); ct == "application/json" {
-        var jsonBody interface{}
-        if err := json.Unmarshal(respBody, &jsonBody); err != nil {
+    // Check if content type is JSON
+    ct := resp.Header.Get("Content-Type")
+    isJSON := ct == "application/json" || ct == "application/json; charset=utf-8"
+
+    var responseBody interface{}
+    if isJSON {
+        // For JSON responses, parse directly into interface{}
+        if err := json.Unmarshal(respBody, &responseBody); err != nil {
             return fmt.Errorf("failed to parse JSON response: %v", err)
         }
-        responseBody = jsonBody
+    } else {
+        // For non-JSON responses, use raw bytes as string
+        responseBody = string(respBody)
     }
 
     return writer.WriteJSON(resp.StatusCode, headers, responseBody)

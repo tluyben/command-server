@@ -108,15 +108,26 @@ func loadCommands() error {
     return nil
 }
 
+func setCORSHeaders(w http.ResponseWriter, corsValue string) {
+    w.Header().Set("Access-Control-Allow-Origin", corsValue)
+    w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+    w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Accept, sentry-trace, traceparent, baggage")
+    w.Header().Set("Access-Control-Max-Age", "86400") // 24 hours
+}
+
 func handleRequest(w http.ResponseWriter, r *http.Request) {
+    // Handle CORS preflight
+    if *cors != "" {
+        setCORSHeaders(w, *cors)
+        if r.Method == http.MethodOptions {
+            w.WriteHeader(http.StatusOK)
+            return
+        }
+    }
+
     if r.Method != http.MethodPost {
         http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
         return
-    }
-
-    if *cors != "" {
-        w.Header().Set("Access-Control-Allow-Origin", *cors)
-        w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
     }
 
     var req Request
@@ -140,6 +151,9 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 }
 
 func sendError(w http.ResponseWriter, statusCode int, message string) {
+    if *cors != "" {
+        setCORSHeaders(w, *cors)
+    }
     resp := map[string]interface{}{
         "statuscode": statusCode,
         "headers":    map[string][]string{"Content-Type": {"application/json"}},
